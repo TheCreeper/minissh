@@ -1,53 +1,30 @@
 package main
 
 import (
-	"bufio"
 	"encoding/json"
 	"io/ioutil"
-	"os"
 )
 
-var ConfigFile string
+type ServerConfig struct {
 
-type ClientConfig struct {
-	Servers []struct {
-		Addr string
-	}
+	// Array of addresses to listen on
+	ListenAddress []string
+
+	// Array of hostkeys that can be parsed
+	HostKeys []string
 }
 
-func (cfg *ClientConfig) Flush() (err error) {
+func GenerateConfig() ([]byte, error) {
 
-	file, err := os.OpenFile(ConfigFile, os.O_RDWR|os.O_CREATE, 0666)
-	if err != nil {
+	cfg := &ServerConfig{
 
-		return
+		ListenAddress: []string{":22"},
+		HostKeys:      []string{"/etc/ssh/ssh_host_rsa_key", "/etc/ssh/ssh_host_ecdsa_key"},
 	}
-	defer file.Close()
-
-	b, err := json.MarshalIndent(cfg, "", "	")
-	if err != nil {
-
-		return
-	}
-
-	buf := bufio.NewWriter(file)
-	defer buf.Flush()
-
-	_, err = buf.Write(b)
-	if err != nil {
-
-		return
-	}
-
-	return
+	return json.MarshalIndent(cfg, "", "	")
 }
 
-func (cfg *ClientConfig) Validate() (err error) {
-
-	return
-}
-
-func GetCFG(f string) (cfg *ClientConfig, err error) {
+func GetCFG(f string) (cfg *ServerConfig, err error) {
 
 	b, err := ioutil.ReadFile(f)
 	if err != nil {
@@ -56,12 +33,6 @@ func GetCFG(f string) (cfg *ClientConfig, err error) {
 	}
 
 	err = json.Unmarshal(b, &cfg)
-	if err != nil {
-
-		return
-	}
-
-	err = cfg.Validate()
 	if err != nil {
 
 		return

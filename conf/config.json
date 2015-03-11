@@ -1,8 +1,4 @@
 {
-	"Hostkey" : "",
-	"Servers" : [
-		{
-			"Addr" : ":9090"
-		}
-	]
+	"HostKeys" : "/home/dc0/.ssh",
+	"Listen": [":725"]
 }
