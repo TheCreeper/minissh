@@ -7,19 +7,15 @@ import (
 
 type ServerConfig struct {
 
-	// Array of addresses to listen on
-	ListenAddress []string
-
-	// Array of hostkeys that can be parsed
-	HostKeys []string
+	// Address and port to listen for connections on.
+	Addr string
 }
 
 func GenerateConfig() ([]byte, error) {
 
 	cfg := &ServerConfig{
 
-		ListenAddress: []string{":22"},
-		HostKeys:      []string{"/etc/ssh/ssh_host_rsa_key", "/etc/ssh/ssh_host_ecdsa_key"},
+		Addr: ":22",
 	}
 	return json.MarshalIndent(cfg, "", "	")
 }

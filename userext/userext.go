@@ -1,11 +1,11 @@
-package userx
+package userext
 
 import (
 	"bytes"
 	"io"
 	"io/ioutil"
 	"os/user"
-	"path/filepath"
+	"path"
 	"strings"
 
 	"code.google.com/p/go.crypto/ssh"
@@ -19,16 +19,16 @@ func ReadUserAuthKeys(u string) (publicKeys []ssh.PublicKey, err error) {
 		return
 	}
 
-	buf, err := ioutil.ReadFile(filepath.Join(uacc.HomeDir, ".ssh/authorized_keys"))
+	b, err := ioutil.ReadFile(path.Join(uacc.HomeDir, ".ssh/authorized_keys"))
 	if err != nil {
 
 		return
 	}
 
-	bb := bytes.NewBuffer(buf)
+	buf := bytes.NewBuffer(b)
 	for {
 
-		c, err := bb.ReadBytes('\n')
+		c, err := buf.ReadBytes('\n')
 		if err == io.EOF {
 
 			break
@@ -37,6 +37,7 @@ func ReadUserAuthKeys(u string) (publicKeys []ssh.PublicKey, err error) {
 
 			return nil, err
 		}
+
 		if strings.HasPrefix(string(c), "#") {
 
 			continue

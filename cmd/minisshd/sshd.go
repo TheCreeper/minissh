@@ -10,13 +10,13 @@ import (
 
 	"code.google.com/p/go.crypto/ssh"
 	//"code.google.com/p/go.crypto/ssh/terminal"
-	"github.com/TheCreeper/MiniSSH/sshutil"
-	"github.com/TheCreeper/MiniSSH/userx"
+	"github.com/TheCreeper/MiniSSH/osext"
+	"github.com/TheCreeper/MiniSSH/userext"
 	"github.com/creack/termios/win"
 	"github.com/kr/pty"
 )
 
-func (cfg *ServerConfig) NewListenServer(addr string) {
+func (cfg *ServerConfig) NewServer() (err error) {
 
 	// An SSH server is represented by a ServerConfig, which holds
 	// certificate details and handles authentication of ServerConns.
@@ -26,21 +26,19 @@ func (cfg *ServerConfig) NewListenServer(addr string) {
 		AuthLogCallback:   HandleAuthLogCallback,
 	}
 
-	// Parse the host keys
-	for _, v := range cfg.HostKeys {
+	key, err := osext.ReadHostKeys("/etc/ssh")
+	if err != nil {
 
-		key, err := sshutil.ReadHostKey(v)
-		if err != nil {
+		return
+	}
+	for _, v := range key {
 
-			log.Printf("ReadHostKey: %s, %s", err, cfg.HostKeys)
-		}
-
-		config.AddHostKey(key)
+		config.AddHostKey(v)
 	}
 
 	// Once a ServerConfig has been configured, connections can be
 	// accepted.
-	conn, err := net.Listen("tcp", addr)
+	conn, err := net.Listen("tcp", cfg.Addr)
 	if err != nil {
 
 		log.Fatal("Failed to listen for connection: ", err)
@@ -67,13 +65,11 @@ func (cfg *ServerConfig) NewListenServer(addr string) {
 		// Handle the incomming request
 		go HandleServerConn(sshconn, chans)
 	}
-
-	wg.Done()
 }
 
 func HandlePublicKeyCallback(conn ssh.ConnMetadata, key ssh.PublicKey) (perm *ssh.Permissions, err error) {
 
-	publicKeys, err := userx.ReadUserAuthKeys(conn.User())
+	publicKeys, err := userext.ReadUserAuthKeys(conn.User())
 	if err != nil {
 
 		return

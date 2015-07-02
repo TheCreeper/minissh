@@ -4,29 +4,28 @@ import (
 	"flag"
 	"log"
 	"os"
-	"sync"
 )
 
 var (
-
-	// Waitgroup for all go routines
-	wg sync.WaitGroup
-
 	// Debug/Verbose switch
 	Verbose bool
 
-	// Generate sameple configuration switch
+	// Log to syslog switch.
+	Syslog bool
+
+	// Generate sameple configuration switch.
 	GenConfig bool
 
-	// Configuration filepath
+	// Configuration filepath.
 	ConfigFile string
 )
 
 func init() {
 
 	flag.BoolVar(&Verbose, "v", false, "debugging/verbose information")
+	flag.BoolVar(&Syslog, "s", true, "log to syslog.")
 	flag.BoolVar(&GenConfig, "g", false, "Generate a configuration file")
-	flag.StringVar(&ConfigFile, "f", "sshd.conf", "The configuration to parse")
+	flag.StringVar(&ConfigFile, "f", "/etc/minissh/ssh.conf", "The configuration to parse")
 	flag.Parse()
 
 	if GenConfig {
@@ -55,16 +54,8 @@ func main() {
 		log.Fatal(err)
 	}
 
-	for _, v := range cfg.ListenAddress {
+	if err := cfg.NewServer(); err != nil {
 
-		if Verbose {
-
-			log.Printf("Starting SSH Server on %s", v)
-		}
-
-		wg.Add(1)
-		go cfg.NewListenServer(v)
+		log.Fatal(err)
 	}
-
-	wg.Wait()
 }
