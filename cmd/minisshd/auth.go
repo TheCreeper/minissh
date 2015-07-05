@@ -8,6 +8,5 @@ type Auth struct{ *ssh.CertChecker }
 
 func NewAuth() (a Auth) {
 
-	a = &ssh.CertChecker
 	return
 }

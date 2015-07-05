@@ -22,8 +22,7 @@ func (cfg *ServerConfig) NewServer() (err error) {
 	// An SSH server is represented by a ServerConfig, which holds
 	// certificate details and handles authentication of ServerConns.
 	config := new(ssh.ServerConfig)
-	certchecker := &ssh.CertChecker{}
-	config.PublicKeyCallback = certchecker.Authenticate
+	config.PublicKeyCallback = HandlePublicKeyCallback
 	config.AuthLogCallback = HandleAuthLogCallback
 
 	key, err := osext.ReadHostKeys("./")
@@ -70,8 +69,9 @@ func HandlePublicKeyCallback(conn ssh.ConnMetadata, key ssh.PublicKey) (perm *ss
 		certchecker := &ssh.CertChecker{}
 		perm, err := certchecker.Authenticate(conn, v)
 		if err != nil {
-			return
+			continue
 		}
+		return perm, nil
 	}
 	return
 }
