@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/binary"
 	"fmt"
+	"io"
 	"log"
 	"net"
 	"os"
@@ -20,19 +21,16 @@ func (cfg *ServerConfig) NewServer() (err error) {
 
 	// An SSH server is represented by a ServerConfig, which holds
 	// certificate details and handles authentication of ServerConns.
-	config := &ssh.ServerConfig{
+	config := new(ssh.ServerConfig)
+	certchecker := &ssh.CertChecker{}
+	config.PublicKeyCallback = certchecker.Authenticate
+	config.AuthLogCallback = HandleAuthLogCallback
 
-		PublicKeyCallback: HandlePublicKeyCallback,
-		AuthLogCallback:   HandleAuthLogCallback,
-	}
-
-	key, err := osext.ReadHostKeys("/etc/ssh")
+	key, err := osext.ReadHostKeys("./")
 	if err != nil {
-
 		return
 	}
 	for _, v := range key {
-
 		config.AddHostKey(v)
 	}
 
@@ -40,21 +38,17 @@ func (cfg *ServerConfig) NewServer() (err error) {
 	// accepted.
 	conn, err := net.Listen("tcp", cfg.Addr)
 	if err != nil {
-
 		log.Fatal("Failed to listen for connection: ", err)
 	}
 	for {
-
 		sConn, err := conn.Accept()
 		if err != nil {
-
 			log.Printf("conn.Accept: %s", err)
 			continue
 		}
 
 		sshconn, chans, reqs, err := ssh.NewServerConn(sConn, config)
 		if err != nil {
-
 			log.Printf("ssh.NewServerConn: Failed to handshake: %s", err)
 			continue
 		}
@@ -68,32 +62,22 @@ func (cfg *ServerConfig) NewServer() (err error) {
 }
 
 func HandlePublicKeyCallback(conn ssh.ConnMetadata, key ssh.PublicKey) (perm *ssh.Permissions, err error) {
-
 	publicKeys, err := userext.ReadUserAuthKeys(conn.User())
 	if err != nil {
-
 		return
 	}
 	for _, v := range publicKeys {
-
 		certchecker := &ssh.CertChecker{}
-
-		p, err := certchecker.Authenticate(conn, v)
+		perm, err := certchecker.Authenticate(conn, v)
 		if err != nil {
-
-			log.Print(err)
-			continue
+			return
 		}
-
-		return p, nil
 	}
-
 	return
 }
 
 // Log all authentication attempts
 func HandleAuthLogCallback(conn ssh.ConnMetadata, method string, err error) {
-
 	log.Printf("Login attempt for user %s from %s with client %s",
 		conn.User(),
 		conn.RemoteAddr(),
@@ -101,24 +85,19 @@ func HandleAuthLogCallback(conn ssh.ConnMetadata, method string, err error) {
 }
 
 func HandleServerConn(conn ssh.ConnMetadata, chans <-chan ssh.NewChannel) {
-
 	for newChannel := range chans {
-
 		if t := newChannel.ChannelType(); t != "session" {
-
 			newChannel.Reject(ssh.UnknownChannelType, fmt.Sprintf("unknown channel type: %s", t))
 			continue
 		}
 
 		channel, requests, err := newChannel.Accept()
 		if err != nil {
-
 			log.Printf("Could not accept channel (%s)", err)
 			continue
 		}
 
 		s := &Session{
-
 			Conn: conn,
 		}
 		go s.HandleChannelRequest(channel, requests)
@@ -139,56 +118,41 @@ type Session struct {
 }
 
 func (s *Session) HandleChannelRequest(channel ssh.Channel, in <-chan *ssh.Request) {
-
 	for req := range in {
-
 		switch req.Type {
-
 		case "shell":
-
 			if len(req.Payload) == 0 {
-
 				if err := req.Reply(true, nil); err != nil {
-
 					log.Printf("Unable to reply to channel request (%s)", err)
 					continue
 				}
 				go s.HandleNewTerminal(channel)
 			}
-
 		case "pty-req":
-
 			termLen := req.Payload[3]
 			w, h := ParseTerminalDims(req.Payload[termLen+4:])
 			s.THeight = uint16(h)
 			s.TWidth = uint16(w)
 
 			if err := req.Reply(true, nil); err != nil {
-
 				log.Printf("Unable to reply to channel request (%s)", err)
 			}
 
 		case "window-change":
-
 			w := &win.Winsize{
-
 				Height: uint16(binary.BigEndian.Uint32(req.Payload[4:])),
 				Width:  uint16(binary.BigEndian.Uint32(req.Payload)),
 			}
 			if err := win.SetWinsize(s.pty.Fd(), w); err != nil {
-
 				log.Printf("Unable to set window-change (%s)", err)
 			}
 
 		case "close":
-
 			if err := channel.Close(); err != nil {
-
 				log.Printf("Unable to close channel (%s)", err)
 			}
 
 		case "default":
-
 			log.Printf("Invalid Request Type (%s)", req.Type)
 
 		}
@@ -196,27 +160,34 @@ func (s *Session) HandleChannelRequest(channel ssh.Channel, in <-chan *ssh.Reque
 }
 
 func (s *Session) HandleNewTerminal(channel ssh.Channel) {
-
 	cmd := exec.Command("/bin/bash")
 	cmd.Dir = "/home/dc0"
 
 	f, err := pty.Start(cmd)
 	if err != nil {
-
 		log.Printf("Could not start pty (%s)", err)
 	}
 	s.pty = f
 
 	w := &win.Winsize{
-
 		Height: s.THeight,
 		Width:  s.TWidth,
 	}
 	if err := win.SetWinsize(s.pty.Fd(), w); err != nil {
-
 		log.Printf("Unable to set window-change (%s)", err)
 	}
 
-	go CopyRequest(channel, s.pty)
-	go CopyResponse(s.pty, channel)
+	// Copy Request
+	go func(in io.Reader, out io.Writer) {
+		if _, err := io.Copy(out, in); err != nil {
+			log.Printf("CopyRequest: io.Copy: %s\n", err)
+		}
+	}(channel, s.pty)
+
+	// Copy Response
+	go func(out io.Reader, in io.Writer) {
+		if _, err := io.Copy(in, out); err != nil {
+			log.Printf("CopyResponse: io.Copy: %s\n", err)
+		}
+	}(s.pty, channel)
 }
