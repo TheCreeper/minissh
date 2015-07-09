@@ -26,15 +26,26 @@ func init() {
 	flag.IntVar(&KeySize, "b", 256, "Specifies the number of bits in the key to create. For ecdsa keys the minimum is 256 bits and the maximum is 521 bits.")
 	flag.StringVar(&KeyType, "t", "ecdsa", "Specifies the type of key to create. Only option is ecdsa.")
 	flag.StringVar(&Password, "P", "", "The password used to encrypt the private key. AES-128 is used.")
-	flag.StringVar(&OutputFile, "f", os.ExpandEnv("$HOME/.ssh/id_ecdsa"), "The directory where the private/public keypair files will be written.")
+	flag.StringVar(&OutputFile, "f", os.ExpandEnv("$HOME/.ssh/id_ecdsa"), "Specifies the filename of the key file. This will be where private/public keypair files are writen.")
 	flag.Parse()
 }
 
 func main() {
+	// Check if the private key already exists at the specified location.
+	if _, err := os.Stat(OutputFile); err == nil {
+		log.Fatal("Keyfile already exists at " + OutputFile)
+	}
+
+	// Check if public key already exits.
+	if _, err := os.Stat(OutputFile + ".pub"); err == nil {
+		log.Fatal("Keyfile already exists at " + OutputFile + ".pub")
+	}
+
 	public, private, err := GenerateKeyPair(KeyType, KeySize, Password)
 	if err != nil {
 		log.Fatal(err)
 	}
+
 	if err := ioutil.WriteFile(os.ExpandEnv(OutputFile), private, 0600); err != nil {
 		log.Fatal(err)
 	}
