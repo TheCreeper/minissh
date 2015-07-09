@@ -23,7 +23,7 @@ var (
 )
 
 func init() {
-	flag.IntVar(&KeySize, "b", 256, "Specifies the number of bits in the key to create. For ecdsa keys the minimum is 256 bits and the maximum is 521 bits.")
+	flag.IntVar(&KeySize, "b", 256, "Specifies the number of bits in the key to create. For ecdsa keys the possible values are 256, 384, and 521.")
 	flag.StringVar(&KeyType, "t", "ecdsa", "Specifies the type of key to create. Only option is ecdsa.")
 	flag.StringVar(&Password, "P", "", "The password used to encrypt the private key. AES-128 is used.")
 	flag.StringVar(&OutputFile, "f", os.ExpandEnv("$HOME/.ssh/id_ecdsa"), "Specifies the filename of the key file. This will be where private/public keypair files are writen.")
@@ -99,7 +99,7 @@ func GenerateECDSAKeyPair(keysize int, password string) (public, private []byte,
 
 	// Encrypt the private key
 	if len(password) != 0 {
-		// AES128 is the only option for private key encryption just like in ssh-keygen.
+		// AES-128 is the only option for private key encryption just like in ssh-keygen.
 		block, err = x509.EncryptPEMBlock(rand.Reader,
 			"EC PRIVATE KEY",
 			prvKeyDer,
