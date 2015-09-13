@@ -7,9 +7,9 @@ compiler supports (Windows, Linux, FreeBSD).
 ## Features
 
 - Highly portable. Should run on Windows/Linux/BSD.
-- Uses only modern and reliable encryption methods (RSA/ECDSA).
 - Uses only SSH keys. No passwords.
 - Uses only the Go standard library.
+- Uses only modern and reliable encryption methods (RSA/ECDSA).
 
 ## Limitations of the Standard Library
 
