@@ -1,24 +1,20 @@
 package osext
 
 import (
-	"errors"
 	"io/ioutil"
 	"path/filepath"
 	"regexp"
-
-	"code.google.com/p/go.crypto/ssh"
 )
 
 var (
 	// Match private host keys
 	ValidPrivateHostKey = regexp.MustCompile(`^ssh_host_(\w)+_key$`)
+
+	// Match public host keys
+	ValidPublicHostKey = regexp.MustCompile(`^ssh_host_(\w)+_key.pub$`)
 )
 
-func ReadHostKey(filename string) ([]byte, error) {
-	return ioutil.ReadFile(filename)
-}
-
-func ReadHostKeys(filename string) (keys []ssh.Signer, err error) {
+func ReadHostKeys(filename string) (keys [][]byte, err error) {
 	files, err := ioutil.ReadDir(filename)
 	if err != nil {
 		return
@@ -32,20 +28,11 @@ func ReadHostKeys(filename string) (keys []ssh.Signer, err error) {
 			continue
 		}
 
-		b, err := ReadHostKey(filepath.Join(filename, v.Name()))
+		b, err := ioutil.ReadFile(filepath.Join(filename, v.Name()))
 		if err != nil {
 			return nil, err
 		}
-
-		signer, err := ssh.ParsePrivateKey(b)
-		if err != nil {
-			return nil, err
-		}
-		keys = append(keys, signer)
-	}
-
-	if len(keys) < 1 {
-		return nil, errors.New("No Host Keys Found!")
+		keys = append(keys, b)
 	}
 	return
 }

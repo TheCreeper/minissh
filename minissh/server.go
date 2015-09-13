@@ -1,4 +1,4 @@
-package main
+package minissh
 
 import (
 	"encoding/binary"
@@ -10,14 +10,13 @@ import (
 	"os/exec"
 
 	"code.google.com/p/go.crypto/ssh"
-	//"code.google.com/p/go.crypto/ssh/terminal"
 	"github.com/TheCreeper/MiniSSH/osext"
 	"github.com/TheCreeper/MiniSSH/userext"
 	"github.com/creack/termios/win"
 	"github.com/kr/pty"
 )
 
-func (cfg *ServerConfig) NewServer() (err error) {
+func NewServer() (err error) {
 
 	// An SSH server is represented by a ServerConfig, which holds
 	// certificate details and handles authentication of ServerConns.
@@ -25,12 +24,16 @@ func (cfg *ServerConfig) NewServer() (err error) {
 	config.PublicKeyCallback = HandlePublicKeyCallback
 	config.AuthLogCallback = HandleAuthLogCallback
 
-	key, err := osext.ReadHostKeys("./")
+	key, err := osext.ReadHostKeys(cfg.HostKeysDir)
 	if err != nil {
 		return
 	}
 	for _, v := range key {
-		config.AddHostKey(v)
+		signer, err := ssh.ParsePrivateKey(v)
+		if err != nil {
+			return err
+		}
+		config.AddHostKey(signer)
 	}
 
 	// Once a ServerConfig has been configured, connections can be
@@ -66,8 +69,7 @@ func HandlePublicKeyCallback(conn ssh.ConnMetadata, key ssh.PublicKey) (perm *ss
 		return
 	}
 	for _, v := range publicKeys {
-		certchecker := &ssh.CertChecker{}
-		perm, err := certchecker.Authenticate(conn, v)
+		perm, err := new(ssh.CertChecker).Authenticate(conn, v)
 		if err != nil {
 			continue
 		}
@@ -113,8 +115,8 @@ type Session struct {
 	pty *os.File
 
 	// Win Size
-	THeight uint16
-	TWidth  uint16
+	WinH uint16
+	WinW uint16
 }
 
 func (s *Session) HandleChannelRequest(channel ssh.Channel, in <-chan *ssh.Request) {
@@ -131,8 +133,8 @@ func (s *Session) HandleChannelRequest(channel ssh.Channel, in <-chan *ssh.Reque
 		case "pty-req":
 			termLen := req.Payload[3]
 			w, h := ParseTerminalDims(req.Payload[termLen+4:])
-			s.THeight = uint16(h)
-			s.TWidth = uint16(w)
+			s.WinH = uint16(h)
+			s.WinW = uint16(w)
 
 			if err := req.Reply(true, nil); err != nil {
 				log.Printf("Unable to reply to channel request (%s)", err)
@@ -170,22 +172,26 @@ func (s *Session) HandleNewTerminal(channel ssh.Channel) {
 	s.pty = f
 
 	w := &win.Winsize{
-		Height: s.THeight,
-		Width:  s.TWidth,
+		Height: s.WinH,
+		Width:  s.WinH,
 	}
 	if err := win.SetWinsize(s.pty.Fd(), w); err != nil {
 		log.Printf("Unable to set window-change (%s)", err)
 	}
 
 	// Copy Request
-	go func(in io.Reader, out io.Writer) {
+	go func(in io.ReadCloser, out io.WriteCloser) {
+		defer in.Close()
+		defer out.Close()
 		if _, err := io.Copy(out, in); err != nil {
 			log.Printf("CopyRequest: io.Copy: %s\n", err)
 		}
 	}(channel, s.pty)
 
 	// Copy Response
-	go func(out io.Reader, in io.Writer) {
+	go func(out io.ReadCloser, in io.WriteCloser) {
+		defer out.Close()
+		defer in.Close()
 		if _, err := io.Copy(in, out); err != nil {
 			log.Printf("CopyResponse: io.Copy: %s\n", err)
 		}

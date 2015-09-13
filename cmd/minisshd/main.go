@@ -4,12 +4,11 @@ import (
 	"flag"
 	"log"
 	"os"
+
+	"github.com/TheCreeper/MiniSSH/minissh"
 )
 
 var (
-	// Debug/Verbose switch
-	Verbose bool
-
 	// Generate sameple configuration switch.
 	GenConfig bool
 
@@ -18,10 +17,9 @@ var (
 )
 
 func init() {
-
 	flag.BoolVar(&Verbose, "v", false, "debugging/verbose information")
-	flag.BoolVar(&GenConfig, "g", false, "Generate a configuration file")
-	flag.StringVar(&ConfigFile, "f", "/etc/minissh/ssh.conf", "The configuration to parse")
+	flag.BoolVar(&GenConfig, "genconf", false, "Generate a configuration file")
+	flag.StringVar(&ConfigFile, "f", "ssh.conf", "The configuration to parse")
 	flag.Parse()
 
 	if GenConfig {
@@ -44,7 +42,7 @@ func main() {
 		log.Fatal(err)
 	}
 
-	if err := cfg.NewServer(); err != nil {
+	if err := minissh.NewServer(); err != nil {
 		log.Fatal(err)
 	}
 }

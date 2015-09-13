@@ -8,21 +8,16 @@ import (
 type ServerConfig struct {
 
 	// Address and port to listen for connections on.
-	Addr string
+	Addr        string
+	HostKeysDir string
 }
 
 func GenerateConfig() ([]byte, error) {
 	cfg := &ServerConfig{
-		Addr: ":22",
+		Addr:        ":22",
+		HostKeysDir: "",
 	}
 	return json.MarshalIndent(cfg, "", "	")
-}
-
-func (cfg *ServerConfig) Validate() (err error) {
-	if len(cfg.Addr) == 0 {
-		cfg.Addr = ":22"
-	}
-	return
 }
 
 func GetCFG(f string) (cfg *ServerConfig, err error) {
