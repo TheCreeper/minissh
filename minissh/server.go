@@ -6,7 +6,6 @@ import (
 	"io"
 	"log"
 	"net"
-	"os"
 	"os/exec"
 
 	"code.google.com/p/go.crypto/ssh"
@@ -24,7 +23,7 @@ func NewServer() (err error) {
 	config.PublicKeyCallback = HandlePublicKeyCallback
 	config.AuthLogCallback = HandleAuthLogCallback
 
-	key, err := osext.ReadHostKeys(cfg.HostKeysDir)
+	key, err := osext.ReadHostKeys(HostKeysDir)
 	if err != nil {
 		return
 	}
@@ -38,7 +37,7 @@ func NewServer() (err error) {
 
 	// Once a ServerConfig has been configured, connections can be
 	// accepted.
-	conn, err := net.Listen("tcp", cfg.Addr)
+	conn, err := net.Listen("tcp", ":22")
 	if err != nil {
 		log.Fatal("Failed to listen for connection: ", err)
 	}
@@ -104,19 +103,6 @@ func HandleServerConn(conn ssh.ConnMetadata, chans <-chan ssh.NewChannel) {
 		}
 		go s.HandleChannelRequest(channel, requests)
 	}
-}
-
-type Session struct {
-
-	// SSH Conn Meta Data
-	Conn ssh.ConnMetadata
-
-	// pty
-	pty *os.File
-
-	// Win Size
-	WinH uint16
-	WinW uint16
 }
 
 func (s *Session) HandleChannelRequest(channel ssh.Channel, in <-chan *ssh.Request) {
